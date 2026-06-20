@@ -1,0 +1,39 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Publish App
+      run: dotnet publish -c Release -o release
+
+    - name: Fix base-href
+      run: sed -i 's|<base href="/" />|<base href="/BarcodeAlertApp/" />|g' release/wwwroot/index.html
+
+    - name: Upload Artifacts
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: release/wwwroot
+
+  deploy-pages:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    steps:
+    - name: Deploy to GitHub Pages
+      uses: actions/deploy-pages@v4
