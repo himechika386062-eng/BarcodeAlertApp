@@ -5,7 +5,7 @@
 <div class="container-fluid px-3 py-2" style="max-width: 600px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
     
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="fw-bold m-0" style="color: #333;">📚 書籍スキャナー Pro</h5>
+        <h5 class="fw-bold m-0" style="color: #333;">BookScanner</h5>
         @if (isLoggedIn)
         {
             <button class="btn btn-outline-danger btn-sm" @onclick="Logout" style="font-size: 12px; padding: 2px 8px;">
@@ -14,9 +14,19 @@
         }
     </div>
 
-    <div class="alert @(isLoggedIn ? "alert-info" : "alert-warning") text-center p-2 mb-3 fw-bold" style="font-size: 14px; border-radius: 8px;">
+    <div class="alert @(isLoggedIn ? "alert-info" : "alert-warning") text-center p-2 mb-2 fw-bold shadow-sm" style="border-radius: 8px; border: none; font-size: 14px;">
         @statusMessage
     </div>
+
+    @if (isLoggedIn && hasLinkedSheet)
+    {
+        <div class="alert alert-success p-2 mb-3 shadow-sm" style="border-radius: 8px; border: none; background-color: #e2f0d9;">
+            <div class="d-flex justify-content-between align-items-center text-secondary" style="font-size: 11px;">
+                <span>📂 接続シート: <strong class="text-dark">BookShelf</strong></span>
+                <span class="badge bg-success bg-opacity-75 text-white fw-bold px-2 py-1" style="border-radius: 4px;">既登録: @registeredIsbns.Count 件</span>
+            </div>
+        </div>
+    }
 
     @if (!isLoggedIn)
     {
@@ -29,55 +39,72 @@
     }
     else
     {
-        <div class="position-relative bg-dark rounded-3 overflow-hidden shadow" style="width: 100%; height: 240px; margin-bottom: 15px;">
-            <div id="interactive" class="viewport" style="width: 100%; height: 100%;">
-                <video autoplay="true" preload="auto" src="" muted="true" playsinline="true" style="width: 100%; height: 100%; object-fit: cover;"></video>
-                <canvas class="drawingBuffer" style="display: none;"></canvas>
+        @if (!hasLinkedSheet)
+        {
+            <div class="text-center py-5 bg-light rounded-3 shadow-sm border">
+                <div class="mb-3" style="font-size: 40px;">📊</div>
+                <h6 class="fw-bold mb-2">専用スプレッドシートが未作成です</h6>
+                <p class="text-muted mb-4" style="font-size: 13px;">
+                    あなた専用の「BookShelf（スプレッドシート）」を<br>
+                    Googleドライブ内に自動で作成します。
+                </p>
+                <button class="btn btn-success fw-bold px-4 py-2" @onclick="CreateNewSpreadsheet" style="border-radius: 25px; font-size: 15px;">
+                    ✨ 専用シートを作成して連携する
+                </button>
             </div>
-            <div class="position-absolute top-50 start-50 translate-middle border border-4 border-danger" 
-                 style="width: 75%; height: 70px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); pointer-events: none; border-radius: 6px;">
-                <div class="position-absolute top-50 start-0 end-0 border-top border-1 border-danger" style="transform: translateY(-50%);"></div>
+        }
+        else
+        {
+            <div class="position-relative bg-dark rounded-3 overflow-hidden shadow" style="width: 100%; height: 240px; margin-bottom: 15px;">
+                <div id="interactive" class="viewport" style="width: 100%; height: 100%;">
+                    <video autoplay="true" preload="auto" src="" muted="true" playsinline="true" style="width: 100%; height: 100%; object-fit: cover;"></video>
+                    <canvas class="drawingBuffer" style="display: none;"></canvas>
+                </div>
+                <div class="position-absolute top-50 start-50 translate-middle border border-4 border-danger" 
+                     style="width: 75%; height: 100px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); pointer-events: none; border-radius: 6px;">
+                    <div class="position-absolute top-50 start-0 end-0 border-top border-1 border-danger" style="transform: translateY(-50%);"></div>
+                </div>
             </div>
-        </div>
 
-        <div class="card shadow-sm border-0 bg-light">
-            <div class="card-body p-2" style="max-height: 240px; overflow-y: auto;">
-                <h6 class="fw-bold mb-2 text-secondary" style="font-size: 12px;">今回スキャンした書籍 (@scannedBooks.Count 冊)</h6>
-                @if (scannedBooks.Count == 0)
-                {
-                    <p class="text-muted text-center py-4 my-0" style="font-size: 13px;">ここにスキャンした本が表示されます</p>
-                }
-                else
-                {
-                    <table class="table table-hover align-middle m-0" style="font-size: 13px;">
-                        <thead>
-                            <tr class="table-secondary">
-                                <th>タイトル</th>
-                                <th>著者</th>
-                                <th>出版社</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var book in scannedBooks.AsEnumerable().Reverse())
-                            {
-                                <tr>
-                                    <td class="fw-bold text-truncate" style="max-width: 180px;">@book.Title</td>
-                                    <td class="text-truncate" style="max-width: 100px;">@book.Author</td>
-                                    <td class="text-muted small text-truncate" style="max-width: 90px;">@book.Publisher</td>
+            <div class="card shadow-sm border-0 bg-light">
+                <div class="card-body p-2" style="max-height: 240px; overflow-y: auto;">
+                    <h6 class="fw-bold mb-2 text-secondary" style="font-size: 12px;">今回スキャンした書籍 (@scannedBooks.Count 冊)</h6>
+                    @if (scannedBooks.Count == 0)
+                    {
+                        <p class="text-muted text-center py-4 my-0" style="font-size: 13px;">ここにスキャンした本が表示されます</p>
+                    }
+                    else
+                    {
+                        <table class="table table-hover align-middle m-0" style="font-size: 13px;">
+                            <thead>
+                                <tr class="table-secondary">
+                                    <th>タイトル</th>
+                                    <th>著者</th>
+                                    <th>出版社</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
+                            </thead>
+                            <tbody>
+                                @foreach (var book in scannedBooks.AsEnumerable().Reverse())
+                                {
+                                    <tr>
+                                        <td class="fw-bold text-truncate" style="max-width: 180px;">@book.Title</td>
+                                        <td class="text-truncate" style="max-width: 100px;">@book.Author</td>
+                                        <td class="text-muted small text-truncate" style="max-width: 90px;">@book.Publisher</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
             </div>
-        </div>
+        }
     }
 </div>
 
 @code {
-    // ⚠️ ご自身の実際のIDに書き換えてください
     private const string GoogleClientId = "944746396084-erhvn59grq7d535koruakbe7h7lgsn1f.apps.googleusercontent.com";
-    private const string TargetSpreadsheetId = "1kiVU_g9-FDs9jiHGsN5ofpBDHh707c5lpXGobnvc7hY";
+    private string targetSpreadsheetId = ""; 
+    private bool hasLinkedSheet = false; 
 
     private bool isLoggedIn = false;
     private string accessToken = "";
@@ -95,8 +122,41 @@
         dotNetHelper = DotNetObjectReference.Create(this);
     }
 
-    // 💡 画面描画後に1度だけ起動し、過去データの同期とカメラの初期化を行う
-    // 💡 1. 共通化：Google SheetsからISBNを一括取得する関数
+    // 🟢 ログイン後のシート有無のチェックとカメラ起動の統合管理
+    // 🟢 修正：LocalStorageからのID取得と画面切り替えフラグの連動を確実に強制する
+    private async Task HandlePostLogin()
+    {
+        // JavaScriptから保存されているシートIDを取得
+        var savedId = await JSRuntime.InvokeAsync<string>("getSavedSpreadsheetId");
+
+        if (!string.IsNullOrEmpty(savedId))
+        {
+            // 1. 記憶がある場合 ➔ 即座に変数を更新
+            targetSpreadsheetId = savedId;
+            hasLinkedSheet = true;
+            
+            // 2. 🟢 順番を変更：何よりも先に画面をリフレッシュして「緑枠（接続シート表示）」を常時表示に切り替える！
+            StateHasChanged(); 
+            
+            // 3. 画面が切り替わった状態で、過去のデータを裏で安全に同期
+            await LoadExistingIsbns();
+            
+            // 4. 「〇〇件同期した」という文字をユーザーが目視確認できるよう、ここで2秒待つ
+            await Task.Delay(2000);
+            
+            // 5. 満を持してカメラを起動
+            await StartQuagga();
+        }
+        else
+        {
+            // 記憶がない場合 ➔ 作成ボタン画面へ
+            targetSpreadsheetId = "";
+            hasLinkedSheet = false;
+            statusMessage = "連携するスプレッドシートがありません。作成してください。";
+            StateHasChanged();
+        }
+    }
+
     private async Task LoadExistingIsbns()
     {
         statusMessage = "📚 過去の同期データをスプレッドシートから読み込んでいます...";
@@ -108,7 +168,7 @@
             http.DefaultRequestHeaders.Authorization = 
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
             
-            var response = await http.GetAsync($"https://sheets.googleapis.com/v4/spreadsheets/{TargetSpreadsheetId}/values/E:E");
+            var response = await http.GetAsync($"https://sheets.googleapis.com/v4/spreadsheets/{targetSpreadsheetId}/values/E:E");
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
@@ -116,13 +176,25 @@
                 
                 if (doc.RootElement.TryGetProperty("values", out var valuesJson) && valuesJson.ValueKind == JsonValueKind.Array)
                 {
-                    registeredIsbns.Clear(); // 念のため一度クリア
+                    registeredIsbns.Clear();
+                    
                     foreach (var row in valuesJson.EnumerateArray())
                     {
-                        if (row.GetArrayLength() > 0)
+                        if (row.ValueKind == JsonValueKind.Array && row.GetArrayLength() > 0)
                         {
-                            var isbn = row[0].GetString();
-                            if (!string.IsNullOrEmpty(isbn))
+                            var firstCell = row[0];
+                            string? isbn = null;
+
+                            if (firstCell.ValueKind == JsonValueKind.String)
+                            {
+                                isbn = firstCell.GetString();
+                            }
+                            else if (firstCell.ValueKind == JsonValueKind.Number)
+                            {
+                                isbn = firstCell.GetRawText();
+                            }
+
+                            if (!string.IsNullOrEmpty(isbn) && isbn.Trim().StartsWith("978"))
                             {
                                 registeredIsbns.Add(isbn.Trim()); 
                             }
@@ -133,11 +205,10 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"過去データの同期スキップ: {ex.Message}");
+            Console.WriteLine($"過去データの同期エラー: {ex.Message}");
         }
     }
 
-    // 💡 2. 修正：起動時の自動ログインルート
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && !autoLoginChecked)
@@ -149,19 +220,17 @@
             {
                 accessToken = await JSRuntime.InvokeAsync<string>("getSavedToken");
                 isLoggedIn = true;
+                StateHasChanged(); // 先にログイン状態だけを確定させて画面を書き換える
 
-                // 🟢 共通関数を呼び出し
-                await LoadExistingIsbns();
+                // 🟢 修正：JavaScript側の関数が完全にバインドされるのを300ミリ秒だけ安全に待つ
+                await Task.Delay(300);
 
-                statusMessage = $"本の「上側のバーコード（978〜）」を枠に合わせてください（既登録: {registeredIsbns.Count}件）";
-                StateHasChanged();
-
-                await Task.Delay(500);
-                await StartQuagga();
+                // 統合ログイン管理へ引き渡してシートIDをチェック
+                await HandlePostLogin();
             }
             else
             {
-                statusMessage = "Googleログインを完了させてください";
+                statusMessage = "Googleアカウントでログインしてください";
                 StateHasChanged();
             }
         }
@@ -173,12 +242,49 @@
         await JSRuntime.InvokeVoidAsync("requestGoogleLogin", dotNetHelper, GoogleClientId);
     }
 
+    private async Task CreateNewSpreadsheet()
+    {
+        statusMessage = "🚀 Google Driveに新しいスプレッドシートを作成中...";
+        StateHasChanged();
+        await JSRuntime.InvokeVoidAsync("createNewUserSpreadsheet", dotNetHelper, accessToken);
+    }
+
+    [JSInvokable]
+    public async Task OnSpreadsheetCreateSuccess(string newSheetId)
+    {
+        // 1. メモリ上の変数に新規シートIDをセット
+        targetSpreadsheetId = newSheetId;
+        hasLinkedSheet = true;
+        
+        // 🟢 修正：C#から直接LocalStorageを叩く怪しいコードを削除！
+        // ※IDの保存はJavaScript側（index.htmlのcreateNewUserSpreadsheet内）で既に安全に行われています。
+        
+        // 2. 状態変化を即座に通知して画面を「緑枠（カメラビュー）」側に強制切り替え
+        StateHasChanged();
+
+        statusMessage = "✅ 専用シートの作成と初期化が完了しました！";
+        StateHasChanged();
+
+        // 3. 新規シートなので既登録件数は0件
+        registeredIsbns.Clear();
+        
+        // 4. メッセージを確認させるため2秒待つ
+        await Task.Delay(2000); 
+        
+        // 5. カメラを起動
+        await StartQuagga();
+    }
+
     private async Task Logout()
     {
         await JSRuntime.InvokeVoidAsync("logoutGoogle");
         isLoggedIn = false;
         accessToken = "";
-        statusMessage = "Googleログインを完了させてください";
+        targetSpreadsheetId = ""; 
+        hasLinkedSheet = false;   
+        scannedBooks.Clear();
+        registeredIsbns.Clear();
+        statusMessage = "Googleアカウントでログインしてください";
         StateHasChanged();
     }
 
@@ -187,15 +293,9 @@
     {
         accessToken = token;
         isLoggedIn = true;
-
-        // 🟢 追加：手動ログイン成功時にも、カメラ起動前にシートのISBNを読み込む！
-        await LoadExistingIsbns();
-
-        statusMessage = $"認証成功！カメラを起動しています...（既登録: {registeredIsbns.Count}件）";
-        StateHasChanged();
-
-        await Task.Delay(500);
-        await StartQuagga();
+        
+        // 🟢 手動ログイン時も共通ロジックに引き渡す
+        await HandlePostLogin();
     }
 
     [JSInvokable]
@@ -207,7 +307,7 @@
 
     private async Task StartQuagga()
     {
-        statusMessage = "本の「上側のバーコード（978〜）」を枠に合わせてください";
+        statusMessage = "上側のバーコード（978〜）を赤い枠に合わせてください";
         StateHasChanged();
         await JSRuntime.InvokeVoidAsync("startQuagga", dotNetHelper);
     }
@@ -215,25 +315,18 @@
     [JSInvokable]
     public async Task OnBarcodeDetected(string code)
     {
-        // 13桁の書籍コード（978から始まるJANコード）以外は即座に無視
         if (string.IsNullOrEmpty(code) || !code.StartsWith("978")) return;
-        
-        // 現在、別の本のAPI検索やスプレッドシート書き込みが走っている場合は重ねて処理しない
         if (isProcessing) return;
 
-        // 🛑 【最重要】アプリ起動時にシートから読み込んだ過去データ、および今回スキャンした本の
-        // 重複チェックをここで一括ブロック！(API通信すらさせずに門前払い)
         if (registeredIsbns.Contains(code.Trim()))
         {
-            statusMessage = $"⚠️ 「{code}」はすでに登録済みの本です。";
+            statusMessage = $"⚠️ すでに登録済みの本です。";
             StateHasChanged();
             return;
         }
 
-        // 同一バーコードの5秒連続読み取りガード（カメラにかざしっぱなしの時の連打防止）
         if (code == lastScannedIsbn && (DateTime.Now - lastScannedTime).TotalSeconds < 5) return;
 
-        // 🔒 処理開始のロックをかける
         isProcessing = true;
         lastScannedIsbn = code;
         lastScannedTime = DateTime.Now;
@@ -250,19 +343,15 @@
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 
-            // APIから返ってきたデータが正常な配列であり、null（[null]）ではないことを厳格にチェック
             if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0 && root[0].ValueKind != JsonValueKind.Null)
             {
-                // 配列の中に「summary」オブジェクトが本当に存在するかチェック
                 if (root[0].TryGetProperty("summary", out var summary))
                 {
                     var title = summary.GetProperty("title").GetString();
 
-                    // タイトルが空っぽ（API側のデータ不備など）の場合はシートへの追加をスキップ
                     if (string.IsNullOrWhiteSpace(title))
                     {
                         statusMessage = "⚠️ 本のタイトルが空のため、保存をスキップしました。";
-                        // ※ lastScannedIsbn は消さずに維持することで、5秒間は同じ本でのリトライをガードします
                         isProcessing = false; 
                         StateHasChanged();
                         return;
@@ -280,33 +369,28 @@
                     statusMessage = $"📝 シートに書き込み中: {book.Title}";
                     StateHasChanged();
 
-                    // JavaScriptの送信ロジック（index.html）を呼び出してGoogle Sheetsへ直接書き込み
                     var dataJson = JsonSerializer.Serialize(book);
-                    await JSRuntime.InvokeVoidAsync("sendToGoogleSheetsDirect", dotNetHelper, accessToken, TargetSpreadsheetId, dataJson);
+                    await JSRuntime.InvokeVoidAsync("sendToGoogleSheetsDirect", dotNetHelper, accessToken, targetSpreadsheetId, dataJson);
 
-                    // 🟢 成功ルート：次回の重複チェックに引っかかるよう、即座にブラックリスト（HashSet）へ登録
                     registeredIsbns.Add(code.Trim());
-                    
-                    // 下の一覧に表示するために画面用リストに追加
                     scannedBooks.Add(book);
                 }
                 else
                 {
                     statusMessage = "⚠️ 本の情報（詳細）が見つかりませんでした。";
-                    isProcessing = false; // ロック解除（lastScannedIsbnは維持）
+                    isProcessing = false; 
                 }
             }
             else
             {
-                // APIのアクセス制限や未登録コードで空配列「[]」が返ってきた場合
                 statusMessage = "⚠️ データの取得に失敗しました（未登録、または連続制限）。";
-                isProcessing = false; // ロック解除（同じ本をかざし続けられても5秒間は徹底ガード）
+                isProcessing = false; 
             }
         }
         catch (Exception ex)
         {
             statusMessage = $"❌ エラー: {ex.Message}";
-            isProcessing = false; // ロック解除（同じ本をかざし続けられても5秒間は徹底ガード）
+            isProcessing = false; 
         }
         StateHasChanged();
     }
@@ -315,7 +399,7 @@
     public void OnSheetWriteSuccess()
     {
         statusMessage = "✅ 保存完了！次の本をスキャンできます。";
-        isProcessing = false; // 🟢 成功したのでロック解除
+        isProcessing = false; 
         StateHasChanged();
     }
 
@@ -324,7 +408,7 @@
     {
         statusMessage = $"❌ シート保存失敗: {error}";
         lastScannedIsbn = ""; 
-        isProcessing = false; // 🟢 失敗したのでロック解除
+        isProcessing = false; 
         StateHasChanged();
     }
 
