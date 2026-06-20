@@ -1,9 +1,10 @@
 ﻿@page "/"
 @inject IJSRuntime JSRuntime
-@inject Supabase.Client SupabaseClient // Supabaseをこの画面で使えるように追加
+@inject Supabase.Client SupabaseClient
+@inject HttpClient Http // 🟢 API通信用のHttpClientを追加
 @implements IDisposable
 
-<h1>バーコードテスト</h1>
+<h1>バーコード書籍検索テスト</h1>
 
 <button @onclick="LaunchCamera" style="padding: 10px 20px; font-size: 16px; margin-bottom: 15px;">
     カメラを起動する
@@ -11,8 +12,25 @@
 
 <div id="reader" style="width: 100%; max-width: 500px; border: 1px solid #ccc; min-height: 300px;"></div>
 
+@if (scannedBook != null)
+{
+    <div class="card mt-3" style="max-width: 500px; padding: 20px; border-left: 5px solid #0d6efd;">
+        <div class="card-body p-0">
+            <h4 class="card-title" style="font-weight: bold; margin-bottom: 15px; color: #333;">
+                @scannedBook.Title
+            </h4>
+            <ul class="list-unstyled" style="font-size: 15px; margin: 0; padding: 0;">
+                <li style="margin-bottom: 8px;"><strong>著者：</strong> @scannedBook.Author</li>
+                <li style="margin-bottom: 8px;"><strong>出版社：</strong> @scannedBook.Publisher</li>
+                <li><strong>出版年月：</strong> @FormatPubDate(scannedBook.PubDate)</li>
+            </ul>
+        </div>
+    </div>
+}
+
 @code {
     private DotNetObjectReference<Home>? objRef;
+    private BookSummary? scannedBook; // 🟢 本の情報を画面表示用に保持する変数
 
     private async Task LaunchCamera()
     {
@@ -33,15 +51,35 @@
     {
         try
         {
-            // 🟢 【改善ポイント】まずは978から始まるかどうかを「一番最初」にチェックする
+            // 一番最初に978（本の上側）から始まるかチェック
             if (!code.StartsWith("978"))
             {
-                // 978以外（下側のコードなど）が読まれてしまったら、警告を出して処理を抜ける
                 await JSRuntime.InvokeVoidAsync("alert", "本の上のバーコード（978から始まるコード）を枠に合わせてください。");
                 return;
             }
 
-            // 1. 978確定なので、Supabaseに同じバーコードが存在するか検索する
+            // 🟢 OpenBD APIから書籍の文字情報を取得する
+            var apiResponse = await Http.GetFromJsonAsync<OpenBdResponse[]>($"https://api.openbd.jp/v1/get?isbn={code}");
+            
+            string bookTitle = "不明な書籍";
+
+            if (apiResponse != null && apiResponse.Length > 0 && apiResponse[0] != null)
+            {
+                scannedBook = apiResponse[0].Summary;
+                if (scannedBook != null)
+                {
+                    bookTitle = scannedBook.Title;
+                }
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "書籍情報が見つかりませんでした。");
+                scannedBook = null;
+            }
+
+            StateHasChanged(); // 🟢 画面の表示を更新（タイトル等をカードに出す）
+
+            // 1. Supabaseに同じバーコードが存在するか検索する
             var response = await SupabaseClient
                 .From<BarcodeModel>()
                 .Where(x => x.Code == code)
@@ -51,19 +89,20 @@
             if (response.Models.Count > 0)
             {
                 // 【重複あり】
-                await JSRuntime.InvokeVoidAsync("alert", $"⚠️ 警告：この本はすでに登録されています！\n値: {code}");
+                await JSRuntime.InvokeVoidAsync("alert", $"⚠️ 警告：『{bookTitle}』はすでに登録されています！");
             }
             else
             {
-                // 【重複なし】
+                // 【重複なし】タイトル情報を添えてSupabaseに保存
                 var newBarcode = new BarcodeModel
                 {
-                    Code = code
+                    Code = code,
+                    Title = bookTitle
                 };
 
                 await SupabaseClient.From<BarcodeModel>().Insert(newBarcode);
                 
-                await JSRuntime.InvokeVoidAsync("alert", $"本を新しく登録しました！\n値: {code}");
+                await JSRuntime.InvokeVoidAsync("alert", $"本を新しく登録しました！\n『{bookTitle}』");
                 Console.WriteLine($"Supabaseへの新規保存に成功しました: {code}");
             }
         }
@@ -72,6 +111,17 @@
             Console.WriteLine($"エラーが発生: {ex.Message}");
             await JSRuntime.InvokeVoidAsync("alert", $"エラー: {ex.Message}");
         }
+    }
+
+    // 🟢 出版年月を「2026年06月」のように整形するヘルパー関数
+    private string FormatPubDate(string rawDate)
+    {
+        if (string.IsNullOrEmpty(rawDate)) return "不明";
+        if (rawDate.Length >= 6)
+        {
+            return $"{rawDate.Substring(0, 4)}年{rawDate.Substring(4, 2)}月";
+        }
+        return rawDate;
     }
 
     public void Dispose() => objRef?.Dispose();
