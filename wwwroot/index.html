@@ -30,8 +30,10 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
 
     <script>
-        // 音声オブジェクトを作成
         window.beepSound = new Audio('beep.mp3');
+        
+        // 🟢 連続スキャン時の連打防止フラグ
+        let isScanningLocked = false;
 
         window.startCamera = (dotNetHelper) => {
             window.beepSound.play()
@@ -43,17 +45,27 @@
                 { facingMode: "environment" }, 
                 { 
                     fps: 10, 
-                    // 🟢 ここを修正：真四角の「250」から「横長のサイズ指定」に変更
                     qrbox: (viewfinderWidth, viewfinderHeight) => {
                         return { width: 280, height: 80 };
                     }
                 },
                 (text) => {
+                    // 🟢 連打防止ロックがかかっている場合は、処理をスルーする
+                    if (isScanningLocked) return;
+
+                    // ロックをかける（2秒間は次のスキャンを無視）
+                    isScanningLocked = true;
+
+                    // 音を鳴らしてC#にデータを渡す（★html5Qrcode.stop() は呼ばない！）
                     window.beepSound.play();
                     dotNetHelper.invokeMethodAsync('OnScan', text);
-                    html5Qrcode.stop();
+
+                    // 2秒後にロックを解除して、次の本をスキャンできるようにする
+                    setTimeout(() => {
+                        isScanningLocked = false;
+                    }, 2000); 
                 },
-                (err) => { /* スキャン中のエラーは無視 */ }
+                (err) => { /* エラー無視 */ }
             ).catch(err => {
                 alert("カメラの起動に失敗しました: " + err);
             });

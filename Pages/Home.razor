@@ -1,14 +1,14 @@
 ﻿@page "/"
 @inject IJSRuntime JSRuntime
 @inject Supabase.Client SupabaseClient
-@inject HttpClient Http // 🟢 API通信用のHttpClientを追加
+@inject HttpClient Http
 @implements IDisposable
 
-<h1>バーコード書籍検索テスト</h1>
+<h1>連続書籍チェッカー</h1>
 
-<button @onclick="LaunchCamera" style="padding: 10px 20px; font-size: 16px; margin-bottom: 15px;">
-    カメラを起動する
-</button>
+<div class="alert @statusClass mt-2" style="max-width: 500px; font-weight: bold;">
+    @statusMessage
+</div>
 
 <div id="reader" style="width: 100%; max-width: 500px; border: 1px solid #ccc; min-height: 300px;"></div>
 
@@ -30,35 +30,56 @@
 
 @code {
     private DotNetObjectReference<Home>? objRef;
-    private BookSummary? scannedBook; // 🟢 本の情報を画面表示用に保持する変数
+    private BookSummary? scannedBook;
+    
+    // 🟢 画面表示用のステータス管理変数
+    private string statusMessage = "カメラを起動中...";
+    private string statusClass = "alert-info";
 
-    private async Task LaunchCamera()
+    // 🟢 画面が立ち上がった瞬間に実行されるBlazorの標準関数
+    protected override async Task OnInitializedAsync()
     {
         objRef = DotNetObjectReference.Create(this);
-        try
+    }
+
+    // 🟢 画面のレンダリング（描画）が終わったらカメラを自動起動する
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
         {
-            await JSRuntime.InvokeVoidAsync("startCamera", objRef);
-        }
-        catch (Exception ex)
-        {
-            await JSRuntime.InvokeVoidAsync("alert", $"エラーが発生しました: {ex.Message}");
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("startCamera", objRef);
+                statusMessage = "バーコードを枠に合わせてください（連続スキャン有効）";
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                statusMessage = $"カメラ起動エラー: {ex.Message}";
+                statusClass = "alert-danger";
+                StateHasChanged();
+            }
         }
     }
 
-    // バーコードを検知したらJSから呼ばれるC#の関数
     [JSInvokable]
     public async Task OnScan(string code)
     {
         try
         {
-            // 一番最初に978（本の上側）から始まるかチェック
             if (!code.StartsWith("978"))
             {
-                await JSRuntime.InvokeVoidAsync("alert", "本の上のバーコード（978から始まるコード）を枠に合わせてください。");
+                statusMessage = "⚠️ 本の上のバーコード（978〜）を狙ってください。";
+                statusClass = "alert-warning";
+                StateHasChanged();
                 return;
             }
 
-            // 🟢 OpenBD APIから書籍の文字情報を取得する
+            statusMessage = "書籍情報を検索中...";
+            statusClass = "alert-info";
+            StateHasChanged();
+
+            // OpenBD APIから書籍情報を取得
             var apiResponse = await Http.GetFromJsonAsync<OpenBdResponse[]>($"https://api.openbd.jp/v1/get?isbn={code}");
             
             string bookTitle = "不明な書籍";
@@ -73,27 +94,28 @@
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("alert", "書籍情報が見つかりませんでした。");
+                statusMessage = "❌ 書籍情報が見つかりませんでした。";
+                statusClass = "alert-warning";
                 scannedBook = null;
+                StateHasChanged();
+                return;
             }
 
-            StateHasChanged(); // 🟢 画面の表示を更新（タイトル等をカードに出す）
-
-            // 1. Supabaseに同じバーコードが存在するか検索する
+            // Supabaseに同じバーコードが存在するか検索
             var response = await SupabaseClient
                 .From<BarcodeModel>()
                 .Where(x => x.Code == code)
                 .Get();
 
-            // 2. すでに登録されているかどうかの条件分岐
             if (response.Models.Count > 0)
             {
-                // 【重複あり】
-                await JSRuntime.InvokeVoidAsync("alert", $"⚠️ 警告：『{bookTitle}』はすでに登録されています！");
+                // 🟢 【重複あり】画面全体を赤色の警告にする
+                statusMessage = $"⚠️ 重複警告：『{bookTitle}』は既に登録されています！";
+                statusClass = "alert-danger";
             }
             else
             {
-                // 【重複なし】タイトル情報を添えてSupabaseに保存
+                // 【重複なし】Supabaseに保存
                 var newBarcode = new BarcodeModel
                 {
                     Code = code,
@@ -105,18 +127,21 @@
 
                 await SupabaseClient.From<BarcodeModel>().Insert(newBarcode);
                 
-                await JSRuntime.InvokeVoidAsync("alert", $"本を新しく登録しました！\n『{bookTitle}』");
-                Console.WriteLine($"Supabaseへの新規保存に成功しました: {code}");
+                // 🟢 【新規登録】画面全体を緑色の成功にする
+                statusMessage = $"🎉 新規登録成功：『{bookTitle}』を保存しました！";
+                statusClass = "alert-success";
             }
+
+            StateHasChanged();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"エラーが発生: {ex.Message}");
-            await JSRuntime.InvokeVoidAsync("alert", $"エラー: {ex.Message}");
+            statusMessage = $"エラーが発生: {ex.Message}";
+            statusClass = "alert-danger";
+            StateHasChanged();
         }
     }
 
-    // 🟢 出版年月を「2026年06月」のように整形するヘルパー関数
     private string FormatPubDate(string rawDate)
     {
         if (string.IsNullOrEmpty(rawDate)) return "不明";
