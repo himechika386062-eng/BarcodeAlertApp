@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using System.Text.RegularExpressions // 🟢 これが足りていなかったため追加
 @inject IJSRuntime JSRuntime
 @inject Supabase.Client SupabaseClient
 @inject HttpClient Http
@@ -32,17 +33,14 @@
     private DotNetObjectReference<Home>? objRef;
     private BookSummary? scannedBook;
     
-    // 🟢 画面表示用のステータス管理変数
     private string statusMessage = "カメラを起動中...";
     private string statusClass = "alert-info";
 
-    // 🟢 画面が立ち上がった瞬間に実行されるBlazorの標準関数
     protected override async Task OnInitializedAsync()
     {
         objRef = DotNetObjectReference.Create(this);
     }
 
-    // 🟢 画面のレンダリング（描画）が終わったらカメラを自動起動する
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -79,10 +77,10 @@
             statusClass = "alert-info";
             StateHasChanged();
 
-            // OpenBD APIから書籍情報を取得
             var apiResponse = await Http.GetFromJsonAsync<OpenBdResponse[]>($"https://api.openbd.jp/v1/get?isbn={code}");
             
             string bookTitle = "不明な書籍";
+            string cleanAuthor = "不明な著者"; // 🟢 定義場所をここに修正
 
             if (apiResponse != null && apiResponse.Length > 0 && apiResponse[0] != null)
             {
@@ -90,8 +88,10 @@
                 if (scannedBook != null)
                 {
                     bookTitle = scannedBook.Title;
+                    
+                    // 生年表記（,1965- など）を綺麗にカット
                     cleanAuthor = Regex.Replace(scannedBook.Author, @",?\s*\d+-\s*", "");
-                    scannedBook.Author = cleanAuthor;
+                    scannedBook.Author = cleanAuthor; 
                 }
             }
             else
@@ -111,7 +111,6 @@
 
             if (response.Models.Count > 0)
             {
-                // 🟢 【重複あり】画面全体を赤色の警告にする
                 statusMessage = $"⚠️ 重複警告：『{bookTitle}』は既に登録されています！";
                 statusClass = "alert-danger";
             }
@@ -122,14 +121,13 @@
                 {
                     Code = code,
                     Title = bookTitle,
-                    Author = scannedBook?.Author ?? "",
+                    Author = cleanAuthor,
                     Publisher = scannedBook?.Publisher ?? "",
-                    PubDate = scannedBook?.PubDate ?? ""
+                    PubDate = FormatPubDate(scannedBook?.PubDate ?? "")
                 };
 
                 await SupabaseClient.From<BarcodeModel>().Insert(newBarcode);
                 
-                // 🟢 【新規登録】画面全体を緑色の成功にする
                 statusMessage = $"🎉 新規登録成功：『{bookTitle}』を保存しました！";
                 statusClass = "alert-success";
             }
