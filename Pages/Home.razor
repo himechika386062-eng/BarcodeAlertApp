@@ -97,7 +97,10 @@
                 var newBarcode = new BarcodeModel
                 {
                     Code = code,
-                    Title = bookTitle
+                    Title = bookTitle,
+                    Author = scannedBook?.Author ?? "",
+                    Publisher = scannedBook?.Publisher ?? "",
+                    PubDate = scannedBook?.PubDate ?? ""
                 };
 
                 await SupabaseClient.From<BarcodeModel>().Insert(newBarcode);
