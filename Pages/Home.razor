@@ -1,5 +1,6 @@
 ﻿@page "/"
 @inject IJSRuntime JSRuntime
+@inject Supabase.Client SupabaseClient // 🟢 Supabaseをこの画面で使えるように追加
 @implements IDisposable
 
 <h1>バーコードテスト</h1>
@@ -13,13 +14,11 @@
 @code {
     private DotNetObjectReference<Home>? objRef;
 
-    // 👇 ボタンが押されたら実行されるように変更
     private async Task LaunchCamera()
     {
         objRef = DotNetObjectReference.Create(this);
         try
         {
-            // JavaScriptのカメラ起動関数を呼び出す
             await JSRuntime.InvokeVoidAsync("startCamera", objRef);
         }
         catch (Exception ex)
@@ -28,11 +27,31 @@
         }
     }
 
-    // バーコードを検知したらJSから呼ばれるC#の関数
+    // 🟢 バーコードを検知したらJSから呼ばれるC#の関数（ここにSupabase保存を追加）
     [JSInvokable]
     public async Task OnScan(string code)
     {
+        // 1. まずは画面に通知を出す
         await JSRuntime.InvokeVoidAsync("alert", $"読み取り成功！\n値: {code}");
+
+        try
+        {
+            // 2. 保存するデータのモデルを作成
+            var newBarcode = new BarcodeModel
+            {
+                Code = code
+            };
+
+            // 3. Supabaseの「barcodes」テーブルに保存！
+            await SupabaseClient.From<BarcodeModel>().Insert(newBarcode);
+            
+            Console.WriteLine($"Supabaseへの保存に成功しました: {code}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Supabaseへの保存中にエラーが発生: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"DB保存エラー: {ex.Message}");
+        }
     }
 
     public void Dispose() => objRef?.Dispose();
