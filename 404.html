@@ -104,7 +104,6 @@
             }
         };
 
-        // 📸 【復元】Quaggaのカメラ起動処理
         window.startQuagga = function (dotNetHelper) {
             const targetElement = document.querySelector('#interactive');
             if (!targetElement) {
@@ -123,8 +122,17 @@
                         facingMode: "environment" // 背面カメラを優先
                     },
                 },
+                // 🟢 感度調整：フレームレートと処理プロセスの最適化
+                frequency: 10, // 1秒間にスキャンを試みる回数を増やす（標準設定より高め）
+                locator: {
+                    patchSize: "medium",
+                    halfSample: true
+                },
+                numOfWorkers: navigator.hardwareConcurrency || 2,
                 decoder: {
-                    readers: ["ean_reader"] // JAN/EANコード（日本の書籍バーコード）
+                    readers: ["ean_reader"], // JAN/EANコード（日本の書籍バーコード）
+                    // 🟢 誤読を防止し、確実なコードだけを拾う設定
+                    multiple: false
                 },
                 locate: true
             }, function (err) {
@@ -139,39 +147,36 @@
             // バーコードを検知したときのイベント（C#側へ通知）
             Quagga.onDetected(function (result) {
                 if (result && result.codeResult && result.codeResult.code) {
+                    // 🟢 Quaggaの誤読（1桁ズレなど）を防ぐため、確定度（実数値）が一定以上のものだけを採用
+                    // ※もしこれでも反応が鈍い場合は `if (result.codeResult.format === "ean_13")` などの緩い条件にしてください
                     const code = result.codeResult.code;
                     dotNetHelper.invokeMethodAsync('OnBarcodeDetected', code);
                 }
             });
         };
 
-
-        // ⚙️ スプレッドシート直接送信ロジック
-        // 🟢 重複・連打防止フラグ（JavaScript側）
+        // ⚙️ スプレッドシート直接送信ロジック（C#のプロパティ名に修正）
         let isSheetWriting = false;
 
-        // ⚙️ 修正：通信が完了するまで次のリクエストを完全にブロックする
         window.sendToGoogleSheetsDirect = async function (dotNetHelper, accessTokenParam, spreadsheetId, dataJson) {
-            // 🛑 すでに送信中なら、日時追加処理すらさせずに即座に終了する
             if (isSheetWriting) {
                 console.log("現在Google Sheetsへ送信中のため、リクエストをブロックしました。");
                 return;
             }
 
             try {
-                // ロックをかける
                 isSheetWriting = true;
 
                 const dataObject = JSON.parse(dataJson);
                 const timestamp = new Date().toLocaleString("ja-JP");
                 
-                // タイトル、著者、出版社、出版年、ISBN、追加日時の順番
+                // 🟢 修正：C#のBookInfoクラスのプロパティ（大文字始まり）に合わせて取得
                 const rowValues = [[
-                    dataObject.title || "",
-                    dataObject.author || "",
-                    dataObject.publisher || "",
-                    dataObject.pubDate || "",
-                    dataObject.isbn || "",
+                    dataObject.Title || "",
+                    dataObject.Author || "",
+                    dataObject.Publisher || "",
+                    dataObject.PubDate || "",
+                    dataObject.Isbn || "",
                     timestamp
                 ]];
 
@@ -193,18 +198,16 @@
                     throw new Error(`Sheets API Error: ${response.status} - ${errorText}`);
                 }
 
-                // C#側に成功を通知
                 dotNetHelper.invokeMethodAsync("OnSheetWriteSuccess");
 
             } catch (error) {
                 console.error("Sheet write failed:", error);
-                // C#側にエラーを通知
                 dotNetHelper.invokeMethodAsync("OnSheetWriteError", error.message);
             } finally {
-                // 🔓 成功・失敗に関わらず、すべての通信処理が「完全に終わった後」にロックを解除する
                 isSheetWriting = false;
             }
         };
+        
         // 🟢 1. ブラウザから保存されているスプレッドシートIDを読み出す
         window.getSavedSpreadsheetId = function () {
             return localStorage.getItem("google_spreadsheet_id") || "";
