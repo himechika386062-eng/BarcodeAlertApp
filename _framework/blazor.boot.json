@@ -1,7 +1,7 @@
 {
   "mainAssemblyName": "BarcodeAlertApp",
   "resources": {
-    "hash": "sha256-m03UomTfjVhzPG3eSGHRbMoBNseTRzcjIcunSnKZglI=",
+    "hash": "sha256-zc6wyhLsTQPTca7gcjdv9w9Kk19l9f5ejm5EaFtozyU=",
     "jsModuleNative": {
       "dotnet.native.js": "sha256-YDHEHpc+/PUWFYa9BMCN3EcVlpemjKD024swcpPfMIQ="
     },
@@ -106,7 +106,7 @@
       "System.wasm": "sha256-dH8gTwfC8agr9n3W9LFMY/2xjJQVN+9jyVvplI7C1jY=",
       "netstandard.wasm": "sha256-/lVQ7eFIfYd0dbl+6eRxCeoO/4leK2SROW/6Y7K3xWQ=",
       "System.Private.CoreLib.wasm": "sha256-aoxLMQuhXQ5KFwN+387wyKBaKUQFeydYy2rHIMXcG/I=",
-      "BarcodeAlertApp.wasm": "sha256-yJyQwmC8bsuSDC/vGrrf5O40BJ1afHipBkhM9v0KmYU="
+      "BarcodeAlertApp.wasm": "sha256-RwtMEkHcGZhYXm7hmDt2RXeqhhMicBy4BJ6t2EG3Wz4="
     }
   },
   "cacheBootResources": true,
