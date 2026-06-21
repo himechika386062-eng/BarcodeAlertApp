@@ -175,7 +175,7 @@
                     dataObject.Title || "",
                     dataObject.Author || "",
                     dataObject.Publisher || "",
-                    dataObject.PubDate || "",
+                    dataObject.PubYear || "",
                     dataObject.Isbn || "",
                     timestamp
                 ]];
@@ -207,7 +207,7 @@
                 isSheetWriting = false;
             }
         };
-        
+
         // 🟢 1. ブラウザから保存されているスプレッドシートIDを読み出す
         window.getSavedSpreadsheetId = function () {
             return localStorage.getItem("google_spreadsheet_id") || "";
@@ -224,7 +224,7 @@
                     },
                     body: JSON.stringify({
                         properties: {
-                            title: "書籍スキャナー_管理台帳" // Googleドライブに作られるファイル名
+                            title: "BookShelf" // Googleドライブに作られるファイル名
                         }
                     })
                 });
@@ -261,7 +261,7 @@
                 },
                 body: JSON.stringify({
                     values: [
-                        ["タイトル", "著者", "出版社", "出版日", "ISBN", "スキャン日時"] // A列〜F列の見出し
+                        ["タイトル", "著者", "出版社", "出版年", "ISBN", "スキャン日時"] // A列〜F列の見出し
                     ]
                 })
             });
