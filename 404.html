@@ -117,15 +117,15 @@
                     type: "LiveStream",
                     target: targetElement,
                     constraints: {
-                        width: { min: 640, ideal: 1280 },
-                        height: { min: 480, ideal: 720 },
+                        width: { min: 1280, ideal: 1920 },
+                        height: { min: 720, ideal: 1080 },
                         facingMode: "environment" // 背面カメラを優先
                     },
                 },
                 // 🟢 感度調整：フレームレートと処理プロセスの最適化
-                frequency: 10, // 1秒間にスキャンを試みる回数を増やす（標準設定より高め）
+                frequency: 15, // 1秒間にスキャンを試みる回数を増やす（標準設定より高め）
                 locator: {
-                    patchSize: "medium",
+                    patchSize: "large",
                     halfSample: true
                 },
                 numOfWorkers: navigator.hardwareConcurrency || 2,
